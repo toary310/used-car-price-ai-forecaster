@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+pandas
+scikit-learn
+pydantic
+joblib # scikit-learnモデルの保存/読み込みに推奨
+python-dotenv # .env ファイル読み込み用 (任意)

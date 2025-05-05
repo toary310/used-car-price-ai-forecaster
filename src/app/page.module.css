@@ -30,8 +30,16 @@
 .main {
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  grid-row-start: 2;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 3rem 1.5rem;
+  background: linear-gradient(
+    to bottom right,
+    #eff6ff,
+    #f5f3ff,
+    #eef2ff
+  );
 }
 
 .main ol {
@@ -164,5 +172,11 @@ a.secondary {
 @media (prefers-color-scheme: dark) {
   .logo {
     filter: invert();
+  }
+}
+
+@media (min-width: 768px) {
+  .main {
+    padding: 4rem 3rem;
   }
 }
