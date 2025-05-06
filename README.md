@@ -11,7 +11,7 @@
 *   **フロントエンド:**
 *   Next.js (v15+) / React (v19+)
     *   TypeScript
-    *   Tailwind CSS
+    *   CSS Modules
     *   Zod (フォームバリデーション)
     *   React `useActionState` / Next.js Server Actions (フォーム処理・API連携)
 *   **バックエンド (API):**
