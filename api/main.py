@@ -1,33 +1,44 @@
-import joblib
-import pandas as pd
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+"""
+中古車価格予測APIのメインファイル
+このファイルは、FastAPIを使用して中古車の価格を予測するためのWeb APIを提供します。
+"""
+
+import joblib  # モデルの保存・読み込みに使用
+import pandas as pd  # データ処理に使用
+from fastapi import FastAPI, HTTPException  # Web APIフレームワーク
+from fastapi.middleware.cors import CORSMiddleware  # クロスオリジンリソース共有の設定
+from pydantic import BaseModel, Field  # データバリデーション
 from datetime import datetime
 import os
 
 # --- 定数 ---
-MODEL_DIR = 'model'
-MODEL_FILE = os.path.join(MODEL_DIR, 'car_price_model.joblib')
-FEATURES_FILE = os.path.join(MODEL_DIR, 'model_features.joblib')
+# モデルファイルと特徴量リストの保存場所を指定
+MODEL_DIR = 'model'  # モデルを保存するディレクトリ
+MODEL_FILE = os.path.join(MODEL_DIR, 'car_price_model.joblib')  # 学習済みモデルのファイル
+FEATURES_FILE = os.path.join(
+    MODEL_DIR, 'model_features.joblib')  # モデルが使用する特徴量のリスト
 
 # --- モデルと特徴量リストの読み込み ---
 try:
+    # 学習済みモデルと特徴量リストを読み込む
     model = joblib.load(MODEL_FILE)
     model_features = joblib.load(FEATURES_FILE)
     print("Model and features loaded successfully.")
     print(f"Expected features: {model_features}")
 except FileNotFoundError:
-    print(f"Error: Model or features file not found in {MODEL_DIR}. Run train_model.py first.")
+    # モデルファイルが見つからない場合のエラー処理
+    print(
+        f"Error: Model or features file not found in {MODEL_DIR}. Run train_model.py first.")
     model = None
     model_features = None
 except Exception as e:
+    # その他のエラー処理
     print(f"Error loading model or features: {e}")
     model = None
     model_features = None
 
-
 # --- FastAPI アプリケーションの初期化 ---
+# FastAPIのインスタンスを作成し、APIの基本情報を設定
 app = FastAPI(
     title="Used Car Price Prediction API",
     description="API to predict the selling price of used cars.",
@@ -35,34 +46,38 @@ app = FastAPI(
 )
 
 # --- CORS 設定 ---
-# フロントエンド (Next.js) からのリクエストを許可する
-# 注意: 本番環境では、より厳密なオリジン設定が必要です
+# フロントエンドアプリケーションからのリクエストを許可する設定
+# CORS: Cross-Origin Resource Sharing（クロスオリジンリソース共有）
 origins = [
-    "http://localhost:3000", # Next.js の開発サーバー
+    "http://localhost:3000",  # Next.jsの開発サーバー
     # 必要に応じて他のオリジンを追加
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"], # すべての HTTP メソッドを許可 (GET, POST など)
-    allow_headers=["*"], # すべての HTTP ヘッダーを許可
+    allow_origins=origins,  # 許可するオリジンのリスト
+    allow_credentials=True,  # クレデンシャル（Cookie等）の送信を許可
+    allow_methods=["*"],  # すべてのHTTPメソッドを許可
+    allow_headers=["*"],  # すべてのHTTPヘッダーを許可
 )
 
 # --- リクエストボディの Pydantic モデル ---
-# フロントエンドから送信されるデータ構造を定義
-# train_model.py で使用した特徴量 + 年 (Year)
-class CarFeaturesInput(BaseModel):
-    year: int = Field(..., gt=1979, lt=datetime.now().year + 2, description="Year of the car")
-    present_price: float = Field(..., gt=0, description="Current showroom price (in Lakhs)") # データセットにあるが必要性が低いかも？ 学習には使用
-    kms_driven: int = Field(..., ge=0, description="Kilometers driven")
-    fuel_type: str = Field(..., description="Fuel type (Petrol, Diesel, CNG)") # データセットに合わせる
-    seller_type: str = Field(..., description="Seller type (Dealer, Individual)") # データセットに合わせる
-    transmission: str = Field(..., description="Transmission type (Manual, Automatic)") # データセットに合わせる
-    owner: int = Field(..., ge=0, lt=5, description="Number of previous owners (0, 1, 3)") # データセットに合わせる (フロントエンドからの変換が必要)
+# フロントエンドから送信されるデータの構造を定義
+# Fieldクラスを使用して各フィールドの制約を設定
 
-    # pydantic v2 から推奨: model_config でサンプルを提供
+
+class CarFeaturesInput(BaseModel):
+    year: int = Field(..., gt=1979, lt=datetime.now().year +
+                      2, description="車両の製造年")
+    present_price: float = Field(..., gt=0, description="現在のショールーム価格（ラクス単位）")
+    kms_driven: int = Field(..., ge=0, description="走行距離（キロメートル）")
+    fuel_type: str = Field(..., description="燃料タイプ（Petrol, Diesel, CNG）")
+    seller_type: str = Field(..., description="販売者タイプ（Dealer, Individual）")
+    transmission: str = Field(...,
+                              description="トランスミッションタイプ（Manual, Automatic）")
+    owner: int = Field(..., ge=0, lt=5, description="前オーナー数（0, 1, 3）")
+
+    # APIドキュメント用のサンプルデータ
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -80,72 +95,91 @@ class CarFeaturesInput(BaseModel):
     }
 
 # --- レスポンスボディの Pydantic モデル ---
+# APIのレスポンスデータの構造を定義
+
+
 class PredictionOutput(BaseModel):
-    predicted_price_lakhs: float = Field(..., description="Predicted selling price in Lakhs")
+    predicted_price_lakhs: float = Field(..., description="予測された販売価格（ラクス単位）")
 
 # --- ルートエンドポイント (動作確認用) ---
+
+
 @app.get("/")
 async def read_root():
+    """APIの動作確認用のエンドポイント"""
     return {"message": "Welcome to the Car Price Prediction API!"}
 
 # --- 予測エンドポイント ---
+
+
 @app.post("/predict", response_model=PredictionOutput)
 async def predict_price(features: CarFeaturesInput):
     """
-    Predicts the selling price of a used car based on its features.
-    Receives car features, preprocesses them, and returns the predicted price.
+    中古車の価格を予測するエンドポイント
+
+    Parameters:
+    - features: 車両の特徴（年式、価格、走行距離など）
+
+    Returns:
+    - predicted_price_lakhs: 予測された販売価格（ラクス単位）
     """
+    # モデルが読み込まれていない場合のエラー処理
     if model is None or model_features is None:
-        raise HTTPException(status_code=500, detail="Model not loaded. API cannot predict.")
+        raise HTTPException(
+            status_code=500, detail="Model not loaded. API cannot predict.")
 
-    print(f"Received features for prediction: {features.model_dump()}") # pydantic v2
+    print(f"Received features for prediction: {features.model_dump()}")
 
-    # 1. 受け取ったデータを DataFrame に変換
+    # 1. 受け取ったデータをDataFrameに変換
     input_data = pd.DataFrame([features.model_dump()])
 
-    # 2. train_model.py と同様の前処理を実行
+    # 2. データの前処理
     try:
-        # 2a. 車齢 (Car_Age) の計算
+        # 2a. 車齢の計算
         current_year = datetime.now().year
         input_data['Car_Age'] = current_year - input_data['year']
-        # input_data = input_data.drop('year', axis=1) # year は model_features にないので削除不要
 
-        # 2b. カテゴリ特徴量の One-Hot Encoding (学習時と同じ列を生成)
-        # - Pydantic モデルのフィールド名 (snake_case) に合わせる
-        categorical_cols_to_encode = ['fuel_type', 'seller_type', 'transmission']
-        # - DataFrame 内のカテゴリカル列を明示的に category 型に変換
+        # 2b. カテゴリ特徴量のOne-Hot Encoding
+        # カテゴリ変数を数値に変換（例：Petrol → [1,0,0], Diesel → [0,1,0]）
+        categorical_cols_to_encode = [
+            'fuel_type', 'seller_type', 'transmission']
         for col in categorical_cols_to_encode:
-             if col in input_data.columns:
+            if col in input_data.columns:
                 input_data[col] = input_data[col].astype('category')
 
-        input_processed = pd.get_dummies(input_data, columns=categorical_cols_to_encode, drop_first=True, dtype=int) # drop_first=True を合わせる
+        input_processed = pd.get_dummies(
+            input_data, columns=categorical_cols_to_encode, drop_first=True, dtype=int)
 
-        # 2c. 学習済みモデルが期待する特徴量の完全なセットを作成
-        #    - 不足している One-Hot 列を 0 で埋める
-        #    - 学習時に存在しなかった列を削除 (もしあれば)
-        #    - 列の順序を学習時と完全に一致させる
-        final_input = pd.DataFrame(columns=model_features) # 学習時の特徴量リストで空のDataFrame作成
-        final_input = pd.concat([final_input, input_processed]) # 処理済みデータを結合 (NaN が入る)
-        final_input = final_input.fillna(0) # 不足列 (NaN) を 0 で埋める
-        final_input = final_input[model_features] # 列の順序を合わせ、余分な列を削除
+        # 2c. モデルが期待する特徴量の形式に変換
+        # - 不足している列を0で埋める
+        # - 余分な列を削除
+        # - 列の順序を学習時と一致させる
+        final_input = pd.DataFrame(columns=model_features)
+        final_input = pd.concat([final_input, input_processed])
+        final_input = final_input.fillna(0)
+        final_input = final_input[model_features]
 
-        print(f"Processed features for prediction (shape: {final_input.shape}):\n{final_input.head()}")
+        print(
+            f"Processed features for prediction (shape: {final_input.shape}):\n{final_input.head()}")
 
     except Exception as e:
         print(f"Error during preprocessing input data: {e}")
-        raise HTTPException(status_code=400, detail=f"Error processing input features: {e}")
+        raise HTTPException(
+            status_code=400, detail=f"Error processing input features: {e}")
 
     # 3. モデルで予測を実行
     try:
         prediction = model.predict(final_input)
-        predicted_price = prediction[0] # 予測結果は配列なので最初の要素を取得
+        predicted_price = prediction[0]  # 予測結果は配列なので最初の要素を取得
         print(f"Prediction successful: {predicted_price}")
     except Exception as e:
         print(f"Error during model prediction: {e}")
-        raise HTTPException(status_code=500, detail=f"Error making prediction: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Error making prediction: {e}")
 
-    # 注意: データセットの Selling_Price は Lakhs 単位なので、そのまま返す
+    # 予測結果を返す（ラクス単位）
     return PredictionOutput(predicted_price_lakhs=predicted_price)
 
-# --- Uvicorn でサーバーを起動するためのコマンド (ターミナルで実行) ---
+# --- サーバー起動コマンド ---
+# 以下のコマンドでサーバーを起動できます：
 # uvicorn main:app --reload --host 0.0.0.0 --port 8000
