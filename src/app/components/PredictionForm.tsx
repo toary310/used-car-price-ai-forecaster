@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from 'react';
-import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
 import { type FormState, predictPrice } from '@/app/actions';
+import { useActionState, useEffect, useRef } from 'react';
+import { useFormStatus } from 'react-dom';
 import styles from './PredictionForm.module.css';
 
 // 各Select要素の選択肢
@@ -40,6 +39,29 @@ export default function PredictionForm() {
       >
         {pending ? '予測中...' : '価格を予測する'}
       </button>
+    );
+  }
+
+  // 信頼区間のプログレスバーコンポーネント
+  function ConfidenceIntervalBar({ lower, upper, predicted }: { lower: number, upper: number, predicted: number }) {
+    // 予測値が範囲内に収まるように保証
+    const safePredict = Math.min(Math.max(predicted, lower), upper);
+    // 予測値の位置（%）を計算
+    const position = ((safePredict - lower) / (upper - lower)) * 100;
+
+    return (
+      <div className={styles.confidenceBarContainer}>
+        <div className={styles.confidenceBar}>
+          <div
+            className={styles.confidenceBarMarker}
+            style={{ left: `${position}%` }}
+          />
+        </div>
+        <div className={styles.confidenceBarLabels}>
+          <span>{lower.toLocaleString()} 円</span>
+          <span>{upper.toLocaleString()} 円</span>
+        </div>
+      </div>
     );
   }
 
@@ -212,7 +234,32 @@ export default function PredictionForm() {
         {state?.message === "予測が完了しました。" && state?.predictedPrice !== undefined && (
           <div className={styles.predictionResult}>
             <h3>予測価格</h3>
-            <p>{state.predictedPrice.toLocaleString()} 円</p>
+            <p className={styles.predictedPrice}>{state.predictedPrice.toLocaleString()} 円</p>
+
+            {/* 信頼区間の表示（新しい機能） */}
+            {state.lowerBoundPrice !== undefined && state.upperBoundPrice !== undefined && (
+              <div className={styles.confidenceInterval}>
+                <h4>
+                  予測範囲
+                  {state.confidenceLevel && (
+                    <span className={styles.confidenceLevel}>
+                      （{state.confidenceLevel}% 信頼区間）
+                    </span>
+                  )}
+                </h4>
+
+                <ConfidenceIntervalBar
+                  lower={state.lowerBoundPrice}
+                  upper={state.upperBoundPrice}
+                  predicted={state.predictedPrice}
+                />
+
+                <p className={styles.confidenceNote}>
+                  ※ この予測は過去のデータに基づく参考値です。<br />
+                  実際の市場価格は様々な要因により変動します。
+                </p>
+              </div>
+            )}
           </div>
         )}
 

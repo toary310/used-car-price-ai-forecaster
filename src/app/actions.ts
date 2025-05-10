@@ -1,6 +1,7 @@
 "use server"; // このファイル内の関数がServer Actionであることを示す
 
 import { z } from 'zod'; // zod をインポート
+import { OldPredictionResult, PredictionResult } from './types';
 
 // Zod スキーマでフォーム入力を定義・検証
 const CarFeaturesSchema = z.object({
@@ -18,6 +19,9 @@ const CarFeaturesSchema = z.object({
 export type FormState = {
   message: string;
   predictedPrice?: number;
+  lowerBoundPrice?: number;
+  upperBoundPrice?: number;
+  confidenceLevel?: number;
   // errors の型をより具体的に定義
   errors?: {
     year?: string[];
@@ -66,7 +70,6 @@ export async function predictPrice(
 
   // バリデーション失敗時の処理
   if (!validatedFields.success) {
-    // console.log("Validation Errors:", validatedFields.error.flatten().fieldErrors);
     // エラー時にフォームの入力値を保持するための値を取得
     const fieldValuesOnError = {
       year: getSafeNumberFormValue(formData, 'year'),
@@ -87,8 +90,6 @@ export async function predictPrice(
 
   // バリデーション成功: validatedFields.data を使用
   const { year, mileage, fuel, transmission, owner_type, seller_type } = validatedFields.data;
-
-  // console.log("Server Action: Received features:", validatedFields.data);
 
   // Owner Type 文字列から数値へのマッピング
   const ownerTypeMapping: { [key: string]: number } = {
@@ -121,45 +122,65 @@ export async function predictPrice(
         body: JSON.stringify(apiRequestBody)
     });
 
-    // console.log("API Response Status:", response.status);
-
     if (!response.ok) {
         let errorDetail = "API request failed";
         try {
             const errorData = await response.json();
             errorDetail = errorData.detail || JSON.stringify(errorData);
-            // console.error("API Error Data:", errorData);
         } catch (jsonError) {
-            // console.error("Failed to parse API error response as JSON:", jsonError);
             errorDetail = await response.text();
-            // console.error("API Error Text:", errorDetail);
         }
         throw new Error(`API Error (${response.status}): ${errorDetail}`);
     }
 
+    // API レスポンスを解析
     const result = await response.json();
-    // console.log("API Response Data:", result);
 
-    // Lakhs から円に変換 (1 Lakh = 150,000円)
-    const predictedPriceYen = Math.round(result.predicted_price_lakhs * 150000);
+    // 新しいAPIレスポンス形式（PredictionResult）かどうかを確認
+    const isNewApiFormat = 'predicted_price_jpy' in result &&
+                          'lower_bound_jpy' in result &&
+                          'upper_bound_jpy' in result;
 
-    // 成功時のレスポンス
-    return {
-      message: "予測が完了しました。",
-      predictedPrice: predictedPriceYen,
-      fieldValues: undefined, // 成功時はフォームをリセットするためクリア
-    };
+    if (isNewApiFormat) {
+      // 新しいAPIレスポンス形式の場合
+      const typedResult = result as PredictionResult;
+
+      // 成功時のレスポンス
+      return {
+        message: "予測が完了しました。",
+        predictedPrice: Math.round(typedResult.predicted_price_jpy),
+        lowerBoundPrice: Math.round(typedResult.lower_bound_jpy),
+        upperBoundPrice: Math.round(typedResult.upper_bound_jpy),
+        confidenceLevel: typedResult.confidence_level,
+        fieldValues: undefined, // 成功時はフォームをリセットするためクリア
+      };
+    } else {
+      // 旧APIレスポンス形式の場合（互換性のため）
+      const oldResult = result as OldPredictionResult;
+
+      // Lakhs から円に変換 (1 Lakh = 150,000円)
+      const predictedPriceYen = Math.round(oldResult.predicted_price_lakhs * 150000);
+
+      // 簡易的な信頼区間を計算（±10%）
+      const lowerBound = Math.round(predictedPriceYen * 0.9);
+      const upperBound = Math.round(predictedPriceYen * 1.1);
+
+      return {
+        message: "予測が完了しました。",
+        predictedPrice: predictedPriceYen,
+        lowerBoundPrice: lowerBound,
+        upperBoundPrice: upperBound,
+        confidenceLevel: 80, // 簡易的な信頼水準
+        fieldValues: undefined,
+      };
+    }
 
   } catch (error) {
-    // console.error("Server Action Error (API Call Failed):");
     let errorMessage = "予測中に不明なエラーが発生しました。";
     if (error instanceof Error) {
-        // console.error(error.message);
         errorMessage = error.message.includes("Failed to fetch") || error.message.includes("ECONNREFUSED")
             ? "APIサーバーに接続できませんでした。サーバーが起動しているか確認してください。"
             : `予測中にエラーが発生しました: ${error.message}`;
-    } else {
-        // console.error(error);
     }
 
     // エラー時のレスポンス

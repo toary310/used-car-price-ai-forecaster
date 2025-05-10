@@ -8,43 +8,42 @@
 
 ## 技術スタック
 
-*   **フロントエンド:**
-*   Next.js (v15+) / React (v19+)
-    *   TypeScript
-    *   CSS Modules
-    *   Zod (フォームバリデーション)
-    *   React `useActionState` / Next.js Server Actions (フォーム処理・API連携)
-*   **バックエンド (API):**
-    *   Python (v3.x)
-    *   FastAPI (Webフレームワーク)
-    *   Uvicorn (ASGIサーバー)
-    *   Pandas (データ操作)
-    *   Scikit-learn (機械学習モデル)
-    *   Joblib (モデル/特徴量リストの保存・読み込み)
-    *   Pydantic (データバリデーション)
-*   **データセット:**
-    *   Kaggle: [Vehicle dataset from Cardekho](https://www.kaggle.com/datasets/nehalbirla/vehicle-dataset-from-cardekho) (`car data.csv`)
+* **フロントエンド:**
+* Next.js (v15+) / React (v19+)
+  * TypeScript
+  * CSS Modules
+  * Zod (フォームバリデーション)
+  * React `useActionState` / Next.js Server Actions (フォーム処理・API連携)
+* **バックエンド (API):**
+  * Python (v3.x)
+  * FastAPI (Webフレームワーク)
+  * Uvicorn (ASGIサーバー)
+  * Pandas (データ操作)
+  * Scikit-learn (機械学習モデル)
+  * Joblib (モデル/特徴量リストの保存・読み込み)
+  * Pydantic (データバリデーション)
+* **データセット:**
+  * Kaggle: [Vehicle dataset from Cardekho](https://www.kaggle.com/datasets/nehalbirla/vehicle-dataset-from-cardekho) (`car data.csv`)
 
 ## セットアップとインストール
 
 ### 1. 前提条件
 
-- Node.js (v18 またはそれ以降)
-- npm または yarn
-- Python (v3.8 またはそれ以降)
-- pip (Python パッケージインストーラー)
-
+* Node.js (v18 またはそれ以降)
+* npm または yarn
+* Python (v3.8 またはそれ以降)
+* pip (Python パッケージインストーラー)
 
 ### 2. リポジトリのクローン
 
 ```bash
 git clone <リポジトリのURL>
-cd <リポジトリ名> # 例: cd ai-summarize-analytics
+cd <リポジトリ名> # 例: cd used-car-price-ai-forecaster
 ```
 
 ### 3. フロントエンドのセットアップ
 
-プロジェクトルートディレクトリ (`ai-summarize-analytics`) で以下を実行します。
+プロジェクトルートディレクトリ (`used-car-price-ai-forecaster`) で以下を実行します。
 
 ```bash
 npm install
@@ -79,16 +78,16 @@ pip3 install -r requirements.txt
 
 ### 5. データセットの準備
 
-1.  Kaggle から [Vehicle dataset from Cardekho](https://www.kaggle.com/datasets/nehalbirla/vehicle-dataset-from-cardekho) データセット (`car data.csv`) をダウンロードします。
-2.  ダウンロードした `car data.csv` ファイルを `api/data/` ディレクトリ内に配置します (`data` ディレクトリがない場合は作成してください)。
+1. Kaggle から [Vehicle dataset from Cardekho](https://www.kaggle.com/datasets/nehalbirla/vehicle-dataset-from-cardekho) データセット (`car data.csv`) をダウンロードします。
+2. ダウンロードした `car data.csv` ファイルを `api/data/` ディレクトリ内に配置します (`data` ディレクトリがない場合は作成してください)。
 
 ### 6. 機械学習モデルの学習
 
 バックエンド API を起動する前に、モデルファイルを生成する必要があります。
 
-1.  `api` ディレクトリにいることを確認します。
-2.  **仮想環境が有効になっていることを確認**します (`(.venv)` が表示されている)。
-3.  以下のコマンドを実行してモデルを学習させ、`api/model/` ディレクトリにファイルを保存します。
+1. `api` ディレクトリにいることを確認します。
+2. **仮想環境が有効になっていることを確認**します (`(.venv)` が表示されている)。
+3. 以下のコマンドを実行してモデルを学習させ、`api/model/` ディレクトリにファイルを保存します。
 
     ```bash
     python3 train_model.py
@@ -98,9 +97,9 @@ pip3 install -r requirements.txt
 
 ### 1. バックエンド (FastAPI) サーバーの起動
 
-1.  `api` ディレクトリに移動します (`cd api`)。
-2.  **仮想環境を有効化**します (`source .venv/bin/activate`)。
-3.  以下のコマンドで FastAPI サーバーを起動します。
+1. `api` ディレクトリに移動します (`cd api`)。
+2. **仮想環境を有効化**します (`source .venv/bin/activate`)。
+3. 以下のコマンドで FastAPI サーバーを起動します。
 
     ```bash
     uvicorn main:app --reload --host 0.0.0.0 --port 8000
@@ -110,8 +109,8 @@ pip3 install -r requirements.txt
 
 ### 2. フロントエンド (Next.js) 開発サーバーの起動
 
-1.  プロジェクトの**ルートディレクトリ** (`ai-summarize-analytics`) に移動します (`cd ..` など)。
-2.  以下のコマンドで Next.js 開発サーバーを起動します。
+1. プロジェクトの**ルートディレクトリ** (`used-car-price-ai-forecaster`) に移動します (`cd ..` など)。
+2. 以下のコマンドで Next.js 開発サーバーを起動します。
 
     ```bash
     npm run dev

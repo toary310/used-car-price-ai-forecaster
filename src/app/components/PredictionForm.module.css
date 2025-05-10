@@ -79,30 +79,85 @@
 
 .predictionResult {
   margin-top: 2rem;
-  padding: 1rem;
-  border: 1px solid #e2e8f0; /* Tailwind gray-200 */
-  border-radius: 0.5rem; /* Tailwind rounded-lg */
-  background-color: #f7fafc; /* Tailwind gray-50 */
+  padding: 1.5rem;
+  background-color: #f8f9fa;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
 .predictionResult h3 {
-  margin-top: 0;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.2rem;
+  color: #333;
+}
+
+.predictedPrice {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #0066cc;
+  margin: 0.5rem 0 1.5rem;
+}
+
+/* 信頼区間表示のスタイル */
+.confidenceInterval {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.confidenceInterval h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #555;
+  font-weight: 500;
+}
+
+.confidenceLevel {
+  font-weight: normal;
+  color: #777;
+}
+
+.confidenceBarContainer {
+  margin: 1.5rem 0;
+}
+
+.confidenceBar {
+  position: relative;
+  height: 0.5rem;
+  background: linear-gradient(to right, #a8e0ff, #0066cc);
+  border-radius: 1rem;
   margin-bottom: 0.5rem;
-  color: #2d3748; /* Tailwind gray-800 */
 }
 
-.predictionResult p {
-  margin: 0;
-  font-size: 1.125rem; /* Tailwind text-lg */
-  font-weight: 500; /* Tailwind font-medium */
-  color: #1a202c; /* Tailwind gray-900 */
+.confidenceBarMarker {
+  position: absolute;
+  top: -0.5rem;
+  width: 3px;
+  height: 1.5rem;
+  background-color: #000;
+  transform: translateX(-50%);
 }
 
+.confidenceBarLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.confidenceNote {
+  margin-top: 1.5rem;
+  font-size: 0.8rem;
+  color: #777;
+  line-height: 1.4;
+}
+
+/* エラー表示のスタイル */
 .predictionResultError {
-   margin-top: 2rem;
-   padding: 1rem;
-   border: 1px solid #fed7d7; /* Tailwind red-200 */
-   border-radius: 0.5rem; /* Tailwind rounded-lg */
-   background-color: #fff5f5; /* Tailwind red-50 */
-   color: #c53030; /* Tailwind red-700 */
+  margin-top: 2rem;
+  padding: 1rem;
+  background-color: #fff4f4;
+  border: 1px solid #ffdbdb;
+  border-radius: 0.5rem;
+  color: #d83030;
 }

@@ -5,6 +5,7 @@
 
 import joblib  # モデルの保存・読み込みに使用
 import pandas as pd  # データ処理に使用
+import numpy as np  # 数値計算用
 from fastapi import FastAPI, HTTPException  # Web APIフレームワーク
 from fastapi.middleware.cors import CORSMiddleware  # クロスオリジンリソース共有の設定
 from pydantic import BaseModel, Field  # データバリデーション
@@ -17,12 +18,19 @@ MODEL_DIR = 'model'  # モデルを保存するディレクトリ
 MODEL_FILE = os.path.join(MODEL_DIR, 'car_price_model.joblib')  # 学習済みモデルのファイル
 FEATURES_FILE = os.path.join(
     MODEL_DIR, 'model_features.joblib')  # モデルが使用する特徴量のリスト
+MODEL_INFO_FILE = os.path.join(MODEL_DIR, 'model_info.joblib')  # モデル情報ファイル
 
 # --- モデルと特徴量リストの読み込み ---
 try:
     # 学習済みモデルと特徴量リストを読み込む
     model = joblib.load(MODEL_FILE)
     model_features = joblib.load(FEATURES_FILE)
+
+    # モデル情報を読み込む（存在すれば）
+    model_info = None
+    if os.path.exists(MODEL_INFO_FILE):
+        model_info = joblib.load(MODEL_INFO_FILE)
+
     print("Model and features loaded successfully.")
     print(f"Expected features: {model_features}")
 except FileNotFoundError:
@@ -31,11 +39,13 @@ except FileNotFoundError:
         f"Error: Model or features file not found in {MODEL_DIR}. Run train_model.py first.")
     model = None
     model_features = None
+    model_info = None
 except Exception as e:
     # その他のエラー処理
     print(f"Error loading model or features: {e}")
     model = None
     model_features = None
+    model_info = None
 
 # --- FastAPI アプリケーションの初期化 ---
 # FastAPIのインスタンスを作成し、APIの基本情報を設定
@@ -69,7 +79,7 @@ app.add_middleware(
 class CarFeaturesInput(BaseModel):
     year: int = Field(..., gt=1979, lt=datetime.now().year +
                       2, description="車両の製造年")
-    present_price: float = Field(..., gt=0, description="現在のショールーム価格（ラクス単位）")
+    present_price: float = Field(..., gt=0, description="現在のショールーム価格（万円）")
     kms_driven: int = Field(..., ge=0, description="走行距離（キロメートル）")
     fuel_type: str = Field(..., description="燃料タイプ（Petrol, Diesel, CNG）")
     seller_type: str = Field(..., description="販売者タイプ（Dealer, Individual）")
@@ -99,7 +109,10 @@ class CarFeaturesInput(BaseModel):
 
 
 class PredictionOutput(BaseModel):
-    predicted_price_lakhs: float = Field(..., description="予測された販売価格（ラクス単位）")
+    predicted_price_jpy: float = Field(..., description="予測された販売価格（円）")
+    lower_bound_jpy: float = Field(..., description="予測価格の下限（円）")
+    upper_bound_jpy: float = Field(..., description="予測価格の上限（円）")
+    confidence_level: float = Field(..., description="信頼区間のレベル（%）")
 
 # --- ルートエンドポイント (動作確認用) ---
 
@@ -121,7 +134,10 @@ async def predict_price(features: CarFeaturesInput):
     - features: 車両の特徴（年式、価格、走行距離など）
 
     Returns:
-    - predicted_price_lakhs: 予測された販売価格（ラクス単位）
+    - predicted_price_jpy: 予測された販売価格（円）
+    - lower_bound_jpy: 予測価格の下限（円）
+    - upper_bound_jpy: 予測価格の上限（円）
+    - confidence_level: 信頼区間のレベル（%）
     """
     # モデルが読み込まれていない場合のエラー処理
     if model is None or model_features is None:
@@ -169,16 +185,49 @@ async def predict_price(features: CarFeaturesInput):
 
     # 3. モデルで予測を実行
     try:
+        # 基本予測
         prediction = model.predict(final_input)
-        predicted_price = prediction[0]  # 予測結果は配列なので最初の要素を取得
-        print(f"Prediction successful: {predicted_price}")
+        predicted_price = prediction[0]
+
+        # 信頼区間の計算
+        confidence = 95  # 95%信頼区間
+
+        # モデルタイプに応じた信頼区間の計算
+        if hasattr(model, 'estimators_'):
+            # RandomForestの場合：個々の決定木の予測から標準偏差を計算
+            tree_predictions = np.array(
+                [tree.predict(final_input)[0] for tree in model.estimators_])
+            std_dev = np.std(tree_predictions)
+
+            # 95%信頼区間（1.96は標準正規分布の95%信頼区間に対応）
+            z_score = 1.96
+            lower_bound = max(0, predicted_price - z_score * std_dev)
+            upper_bound = predicted_price + z_score * std_dev
+        else:
+            # その他のモデルの場合：予測値の±10%を信頼区間とする
+            lower_bound = predicted_price * 0.9
+            upper_bound = predicted_price * 1.1
+
+        # 日本円に変換（1ラクス = 約15万円と仮定）
+        jpy_rate = 150000  # 1ラクス = 15万円
+        predicted_price_jpy = predicted_price * jpy_rate
+        lower_bound_jpy = lower_bound * jpy_rate
+        upper_bound_jpy = upper_bound * jpy_rate
+
+        print(
+            f"Prediction successful: {predicted_price_jpy:.0f} JPY ({lower_bound_jpy:.0f} - {upper_bound_jpy:.0f})")
     except Exception as e:
         print(f"Error during model prediction: {e}")
         raise HTTPException(
             status_code=500, detail=f"Error making prediction: {e}")
 
-    # 予測結果を返す（ラクス単位）
-    return PredictionOutput(predicted_price_lakhs=predicted_price)
+    # 予測結果を返す（日本円単位）
+    return PredictionOutput(
+        predicted_price_jpy=float(predicted_price_jpy),
+        lower_bound_jpy=float(lower_bound_jpy),
+        upper_bound_jpy=float(upper_bound_jpy),
+        confidence_level=confidence
+    )
 
 # --- サーバー起動コマンド ---
 # 以下のコマンドでサーバーを起動できます：
