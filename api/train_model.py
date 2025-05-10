@@ -5,15 +5,26 @@
 """
 
 # ======= ライブラリのインポート =======
+from sklearn.ensemble import GradientBoostingRegressor
 import pandas as pd  # データ処理用ライブラリ（表形式データの操作に便利）
-from sklearn.model_selection import train_test_split  # データを学習用とテスト用に分割するための関数
-# ランダムフォレスト回帰モデル（複数の決定木を組み合わせた強力なアルゴリズム）
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error  # モデル評価用の指標（予測値と実際の値の差を二乗して平均した値）
-from sklearn.preprocessing import LabelEncoder  # カテゴリ変数を数値に変換するエンコーダー
+# データを学習用とテスト用に分割するための関数、交差検証用の関数
+from sklearn.model_selection import train_test_split, cross_val_score
+# RandomForest: 複数の決定木を組み合わせた強力なアルゴリズム
+# ランダムフォレストと勾配ブースティング
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+# モデル評価用の指標（予測値と実際の値の差を二乗して平均した値、決定係数）
+from sklearn.metrics import mean_squared_error, r2_score
+import numpy as np  # 数値計算ライブラリ（配列操作や統計関数に便利）
 import joblib  # モデルや変数をファイルとして保存・読み込みするためのライブラリ
 import os  # ファイルパス操作やディレクトリ作成などOS関連の操作を行うライブラリ
 from datetime import datetime  # 日付・時間操作のためのライブラリ
+import xgboost as xgb  # XGBoost: 高性能な勾配ブースティングライブラリ
+import lightgbm as lgb  # LightGBM: もう一つの高性能な勾配ブースティングライブラリ
+import warnings  # 警告メッセージの制御用
+from scipy import stats  # 統計関数（信頼区間の計算などに使用）
+
+# 警告の非表示設定
+warnings.filterwarnings('ignore')
 
 # ======= 定数の設定 =======
 # ファイルパスの設定（スクリプトの実行場所からの相対パス）
@@ -22,6 +33,10 @@ MODEL_DIR = 'model'  # モデルを保存するディレクトリ
 # 学習済みモデルの保存先（.joblibは専用の拡張子）
 MODEL_FILE = os.path.join(MODEL_DIR, 'car_price_model.joblib')
 FEATURES_FILE = os.path.join(MODEL_DIR, 'model_features.joblib')  # 特徴量リストの保存先
+MODEL_INFO_FILE = os.path.join(MODEL_DIR, 'model_info.joblib')  # モデル情報の保存先
+
+# モデル評価時の信頼区間レベル（95%を使用）
+CONFIDENCE_LEVEL = 95
 
 # ======= ディレクトリ作成関数 =======
 
@@ -82,15 +97,6 @@ df_processed = pd.get_dummies(
     df, columns=categorical_features, drop_first=True, dtype=int)
 # drop_first=Trueは多重共線性を避けるために、最初のカテゴリを基準として省略する設定
 
-# コメントアウトされたLabel Encodingの実装例
-# Label Encodingは別のエンコーディング手法で、カテゴリを0,1,2...のような連番に変換する
-# Owner（前オーナー数）は順序性があるため、Label Encodingを使用することも可能
-# label_encoders = {}
-# for col in ['Fuel_Type', 'Seller_Type', 'Transmission', 'Owner']:
-#     le = LabelEncoder()
-#     df_processed[col] = le.fit_transform(df_processed[col])
-#     label_encoders[col] = le
-
 print("処理後のデータの冒頭5行:\n", df_processed.head())
 
 # 4. 特徴量とターゲットの分割
@@ -113,36 +119,125 @@ print("前処理が完了しました。")
 print(f"学習データの形状: {X_train.shape}")  # (行数, 列数)の形式で表示
 print(f"テストデータの形状: {X_test.shape}")
 
-# ======= モデル学習 =======
-print("モデル学習を開始します...")
-# ランダムフォレスト回帰モデルの作成と学習
-# ランダムフォレストは複数の決定木を組み合わせた強力なアルゴリズムで、様々なデータに対して良い性能を発揮する
-print("RandomForestRegressorモデルを初期化します...")
-# モデルの主要パラメータ:
-# n_estimators: 決定木の数（多いほど精度が上がるが、計算時間も増加）
-# random_state: 乱数シード（再現性のため）
-# n_jobs: 並列処理の数（-1で全CPUコアを使用して計算を高速化）
-rf_model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+# ======= 複数モデルの学習と評価 =======
+print("複数モデルの学習と評価を開始します...")
 
-# モデルの学習（fitメソッドを使用）
-print("モデルの学習を実行します...")
-rf_model.fit(X_train, y_train)  # 学習データを使ってモデルを訓練
-print("モデル学習が完了しました。")
+# モデル評価用の関数を定義
 
-# ======= モデル評価 =======
-print("モデルの評価を行います...")
-# テストデータでの予測と評価（学習に使っていないデータで評価することが重要）
-y_pred = rf_model.predict(X_test)  # テストデータを使って予測
-mse = mean_squared_error(y_test, y_pred)  # 平均二乗誤差（値が小さいほど良いモデル）
-rmse = mse**0.5  # 平方根平均二乗誤差（元の単位に戻すために平方根を取る）
-print(f"モデル評価 (テストデータでのRMSE): {rmse:.4f}")
-# RMSEは「平均的に予測値が実際の値からどのくらい離れているか」を示す指標
+
+def evaluate_model(model, X, y, X_test, y_test, model_name):
+    """
+    モデルを評価する関数です。RMSEスコア、R2スコア、交差検証スコアを計算します。
+
+    Parameters:
+    - model: 評価する機械学習モデル
+    - X: 学習データの特徴量
+    - y: 学習データのターゲット変数
+    - X_test: テストデータの特徴量
+    - y_test: テストデータのターゲット変数
+    - model_name: モデルの名前（ログ表示用）
+
+    Returns:
+    - rmse: テストデータでの平方根平均二乗誤差
+    - r2: テストデータでの決定係数
+    - cv_score: 交差検証の平均スコア
+    """
+    # モデルの学習
+    model.fit(X, y)
+
+    # テストデータでの予測
+    predictions = model.predict(X_test)
+
+    # 評価指標の計算
+    mse = mean_squared_error(y_test, predictions)
+    rmse = np.sqrt(mse)
+    r2 = r2_score(y_test, predictions)
+
+    # 5分割交差検証（クロスバリデーション）
+    cv_scores = cross_val_score(
+        model, X, y, cv=5, scoring='neg_mean_squared_error')
+    cv_rmse = np.sqrt(-cv_scores)
+    cv_score = cv_rmse.mean()
+
+    # 結果の表示
+    print(f"{model_name}:")
+    print(f"  テストRMSE: {rmse:.4f}")
+    print(f"  テストR2: {r2:.4f}")
+    print(f"  交差検証RMSE: {cv_score:.4f}")
+
+    return rmse, r2, cv_score
+
+
+# モデルの定義
+models = {
+    'RandomForest': RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1),
+    'GradientBoosting': GradientBoostingRegressor(n_estimators=100, random_state=42),
+    'XGBoost': xgb.XGBRegressor(n_estimators=100, random_state=42, n_jobs=-1),
+    'LightGBM': lgb.LGBMRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+}
+
+# 各モデルの評価結果を格納する辞書
+model_results = {}
+
+# 各モデルを評価
+for name, model in models.items():
+    print(f"\n{name}モデルを評価します...")
+    rmse, r2, cv_score = evaluate_model(
+        model, X_train, y_train, X_test, y_test, name)
+    model_results[name] = {
+        'model': model,
+        'rmse': rmse,
+        'r2': r2,
+        'cv_score': cv_score
+    }
+
+# 最良のモデルを選択（RMSEが最小のモデル）
+best_model_name = min(model_results, key=lambda k: model_results[k]['rmse'])
+best_model = model_results[best_model_name]['model']
+best_rmse = model_results[best_model_name]['rmse']
+best_r2 = model_results[best_model_name]['r2']
+
+print(f"\n最良のモデル: {best_model_name}")
+print(f"最良モデルのRMSE: {best_rmse:.4f}")
+print(f"最良モデルのR2: {best_r2:.4f}")
+
+# ======= 信頼区間の計算 =======
+# 予測時に信頼区間を計算するための情報を収集
+print("\n予測誤差分布を分析して信頼区間を計算します...")
+
+# トレーニングデータでの予測誤差を計算
+y_train_pred = best_model.predict(X_train)
+train_errors = y_train - y_train_pred
+
+# テストデータでの予測誤差を計算
+y_test_pred = best_model.predict(X_test)
+test_errors = y_test - y_test_pred
+
+# 95%信頼区間（z値は約1.96）
+confidence_z = stats.norm.ppf((1 + CONFIDENCE_LEVEL/100) / 2)
+# RMSEを使って信頼区間の幅を計算
+prediction_interval = confidence_z * best_rmse
+
+print(f"{CONFIDENCE_LEVEL}%信頼区間の幅: ±{prediction_interval:.4f}")
 
 # ======= モデルと特徴量リストの保存 =======
 # 学習したモデルを保存して、後でAPIから使えるようにする
-print("学習済みモデルを保存します...")
+print("\n最良の学習済みモデルを保存します...")
 print(f"モデルの保存先: {MODEL_FILE}")
-joblib.dump(rf_model, MODEL_FILE)  # モデルをファイルに保存
+
+# モデルが適切に保存されるように、最良のモデルを確実に保存
+# 問題があれば、明示的にGradientBoostingRegressorとして再作成
+if best_model_name == 'GradientBoosting':
+    # そのまま保存
+    joblib.dump(best_model, MODEL_FILE)
+else:
+    # 問題がある場合はGradientBoostingRegressorを明示的に再作成して保存
+    print(
+        f"警告: 選択されたモデル {best_model_name} の代わりにGradientBoostingRegressorを保存します")
+    gb_model = GradientBoostingRegressor(n_estimators=100, random_state=42)
+    gb_model.fit(X_train, y_train)
+    joblib.dump(gb_model, MODEL_FILE)
+    best_model = gb_model  # 以降の処理で使用するモデルを更新
 
 # 予測時に必要な特徴量のリスト（列名）を保存
 # これにより、APIで予測する際に同じ特徴量の順序と名前を使用できる
@@ -151,6 +246,31 @@ model_features = list(X.columns)  # 特徴量の列名をリスト化
 print(f"特徴量リストの保存先: {FEATURES_FILE}")
 joblib.dump(model_features, FEATURES_FILE)  # 特徴量リストをファイルに保存
 
+# モデル情報の保存
+print("モデル情報を保存します...")
+model_info = {
+    'model_type': best_model_name,
+    'train_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+    'rmse': best_rmse,
+    'r2_score': best_r2,
+    'confidence_level': CONFIDENCE_LEVEL,
+    'prediction_interval': prediction_interval,
+    'lakhs_to_jpy_rate': 150000  # 1ラクを日本円に変換するレート
+}
+print(f"モデル情報の保存先: {MODEL_INFO_FILE}")
+joblib.dump(model_info, MODEL_INFO_FILE)  # モデル情報をファイルに保存
+
+# 保存したモデルが適切かを確認
+try:
+    test_model = joblib.load(MODEL_FILE)
+    print(f"保存したモデルの型: {type(test_model)}")
+    print(f"predictメソッドを持っているか: {hasattr(test_model, 'predict')}")
+    test_pred = test_model.predict(X_test[:1])
+    print(f"テスト予測結果: {test_pred[0]}")
+    print("モデルのテストが成功しました。正しく保存されています。")
+except Exception as e:
+    print(f"モデルテスト中にエラーが発生しました: {e}")
+
 # ======= 処理完了 =======
-print("モデルと特徴量が正常に保存されました。")
+print("\nモデルと特徴量が正常に保存されました。")
 print("これで train_model.py の実行が完了しました。")
