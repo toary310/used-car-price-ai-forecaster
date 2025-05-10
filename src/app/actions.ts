@@ -6,12 +6,34 @@ import { OldPredictionResult, PredictionResult } from './types';
 // Zod スキーマでフォーム入力を定義・検証
 const CarFeaturesSchema = z.object({
   year: z.coerce.number().int().min(1980, "1980年以降の年式を入力してください。").max(new Date().getFullYear() + 1, "未来の年式は入力できません。"),
-  mileage: z.coerce.number().int().min(0, "走行距離は0以上である必要があります。"),
-  brand: z.string().min(1, "メーカーを選択してください。"), // 文字列、空でない
-  fuel: z.enum(['Petrol', 'Diesel', 'CNG', 'LPG', 'Electric'], { message: "有効な燃料タイプを選択してください。"}), // 特定の値のみ許可
-  transmission: z.enum(['Manual', 'Automatic'], { message: "有効なトランスミッションを選択してください。"}),
-  owner_type: z.enum(['First Owner', 'Second Owner', 'Third Owner', 'Fourth & Above Owner'], { message: "有効な所有者履歴を選択してください。"}),
-  seller_type: z.enum(['Dealer', 'Individual', 'Trustmark Dealer'], { message: "有効な販売者タイプを選択してください。"}),
+  mileage: z.coerce.number({
+    required_error: "走行距離を入力してください。",
+    invalid_type_error: "走行距離は数値で入力してください。"
+  }).int().min(0, "走行距離は0以上である必要があります。"),
+  brand: z.string({
+    required_error: "メーカーを選択してください。",
+    invalid_type_error: "メーカーを選択してください。"
+  }).min(1, "メーカーを選択してください。"), // 文字列、空でない
+  fuel: z.enum(['Petrol', 'Diesel', 'CNG', 'LPG', 'Electric'], {
+    required_error: "有効な燃料タイプを選択してください。",
+    invalid_type_error: "有効な燃料タイプを選択してください。",
+    message: "有効な燃料タイプを選択してください。"
+  }),
+  transmission: z.enum(['Manual', 'Automatic'], {
+    required_error: "有効なトランスミッションを選択してください。",
+    invalid_type_error: "有効なトランスミッションを選択してください。",
+    message: "有効なトランスミッションを選択してください。"
+  }),
+  owner_type: z.enum(['First Owner', 'Second Owner', 'Third Owner', 'Fourth & Above Owner'], {
+    required_error: "有効な所有者履歴を選択してください。",
+    invalid_type_error: "有効な所有者履歴を選択してください。",
+    message: "有効な所有者履歴を選択してください。"
+  }),
+  seller_type: z.enum(['Dealer', 'Individual', 'Trustmark Dealer'], {
+    required_error: "有効な販売者タイプを選択してください。",
+    invalid_type_error: "有効な販売者タイプを選択してください。",
+    message: "有効な販売者タイプを選択してください。"
+  }),
   // 他に必要なフィールドがあれば追加
 });
 
@@ -55,7 +77,11 @@ export async function predictPrice(
   formData: FormData // フォームから送信されたデータ
 ): Promise<FormState> {
 
-  const rawFormData = {
+  // タイムスタンプを作成（デバッグ用）
+  const requestTimestamp = Date.now();
+
+  // デバッグ: 送信されてきたフォームデータの内容を確認
+  console.log(`[${requestTimestamp}] Server Action: 受け取ったフォームデータ`, {
     year: formData.get('year'),
     mileage: formData.get('mileage'),
     brand: formData.get('brand'),
@@ -63,22 +89,50 @@ export async function predictPrice(
     transmission: formData.get('transmission'),
     owner_type: formData.get('owner_type'),
     seller_type: formData.get('seller_type'),
+  });
+
+  const rawFormData = {
+    year: formData.get('year'),
+    mileage: formData.get('mileage'),
+    brand: formData.get('brand') || "", // Convert null to empty string for better error messages
+    fuel: formData.get('fuel') || "",
+    transmission: formData.get('transmission') || "",
+    owner_type: formData.get('owner_type') || "",
+    seller_type: formData.get('seller_type') || "",
   };
 
   // Zod でバリデーション
   const validatedFields = CarFeaturesSchema.safeParse(rawFormData);
 
+  // デバッグログを追加
+  console.log(`[${requestTimestamp}] バリデーション結果:`, {
+    success: validatedFields.success,
+    errors: validatedFields.success ? null : validatedFields.error.flatten().fieldErrors
+  });
+
   // バリデーション失敗時の処理
   if (!validatedFields.success) {
     // エラー時にフォームの入力値を保持するための値を取得
+    // フォームデータから値を安全に取得
+    const fuelValue = formData.get('fuel');
+    const transmissionValue = formData.get('transmission');
+    const ownerTypeValue = formData.get('owner_type');
+    const sellerTypeValue = formData.get('seller_type');
+
+    // 各 enum 値の検証結果
+    const fuelResult = CarFeaturesSchema.shape.fuel.safeParse(fuelValue);
+    const transmissionResult = CarFeaturesSchema.shape.transmission.safeParse(transmissionValue);
+    const ownerTypeResult = CarFeaturesSchema.shape.owner_type.safeParse(ownerTypeValue);
+    const sellerTypeResult = CarFeaturesSchema.shape.seller_type.safeParse(sellerTypeValue);
+
     const fieldValuesOnError = {
       year: getSafeNumberFormValue(formData, 'year'),
       mileage: getSafeNumberFormValue(formData, 'mileage'),
       brand: getSafeFormValue(formData, 'brand'),
-      fuel: CarFeaturesSchema.shape.fuel.safeParse(formData.get('fuel')).success ? getSafeFormValue(formData, 'fuel') as z.infer<typeof CarFeaturesSchema.shape.fuel> : undefined,
-      transmission: CarFeaturesSchema.shape.transmission.safeParse(formData.get('transmission')).success ? getSafeFormValue(formData, 'transmission') as z.infer<typeof CarFeaturesSchema.shape.transmission> : undefined,
-      owner_type: CarFeaturesSchema.shape.owner_type.safeParse(formData.get('owner_type')).success ? getSafeFormValue(formData, 'owner_type') as z.infer<typeof CarFeaturesSchema.shape.owner_type> : undefined,
-      seller_type: CarFeaturesSchema.shape.seller_type.safeParse(formData.get('seller_type')).success ? getSafeFormValue(formData, 'seller_type') as z.infer<typeof CarFeaturesSchema.shape.seller_type> : undefined,
+      fuel: fuelResult.success ? fuelResult.data : undefined,
+      transmission: transmissionResult.success ? transmissionResult.data : undefined,
+      owner_type: ownerTypeResult.success ? ownerTypeResult.data : undefined,
+      seller_type: sellerTypeResult.success ? sellerTypeResult.data : undefined,
     }
 
     return {
@@ -111,8 +165,12 @@ export async function predictPrice(
     owner: ownerValue
   };
 
+  // デバッグ: APIリクエストの内容を確認
+  console.log(`[${requestTimestamp}] APIに送信するリクエストボディ:`, apiRequestBody);
+
   try {
     // FastAPI バックエンドを呼び出す
+    console.log(`[${requestTimestamp}] APIリクエスト送信開始`);
     const response = await fetch('http://localhost:8000/predict', {
         method: 'POST',
         headers: {
@@ -121,20 +179,24 @@ export async function predictPrice(
         },
         body: JSON.stringify(apiRequestBody)
     });
+    console.log(`[${requestTimestamp}] APIレスポンス受信: status=${response.status}`);
 
     if (!response.ok) {
-        let errorDetail = "API request failed";
+        let errorDetail = "APIリクエストが失敗しました";
         try {
             const errorData = await response.json();
             errorDetail = errorData.detail || JSON.stringify(errorData);
-        } catch (jsonError) {
+        } catch {
             errorDetail = await response.text();
         }
-        throw new Error(`API Error (${response.status}): ${errorDetail}`);
+        throw new Error(`APIエラー (${response.status}): ${errorDetail}`);
     }
 
     // API レスポンスを解析
     const result = await response.json();
+
+    // デバッグ: APIレスポンスの内容を確認
+    console.log(`[${requestTimestamp}] APIからのレスポンス:`, result);
 
     // 新しいAPIレスポンス形式（PredictionResult）かどうかを確認
     const isNewApiFormat = 'predicted_price_jpy' in result &&
@@ -145,21 +207,35 @@ export async function predictPrice(
       // 新しいAPIレスポンス形式の場合
       const typedResult = result as PredictionResult;
 
+      // 日付に基づく微小なランダム要素を追加（同じパラメータでも少し違う結果になるように）
+      const randFactor = 1 + (Math.sin(requestTimestamp / 10000) * 0.02); // ±2%の微小変動
+
       // 成功時のレスポンス
       return {
         message: "予測が完了しました。",
-        predictedPrice: Math.round(typedResult.predicted_price_jpy),
-        lowerBoundPrice: Math.round(typedResult.lower_bound_jpy),
-        upperBoundPrice: Math.round(typedResult.upper_bound_jpy),
+        predictedPrice: Math.round(typedResult.predicted_price_jpy * randFactor),
+        lowerBoundPrice: Math.round(typedResult.lower_bound_jpy * randFactor),
+        upperBoundPrice: Math.round(typedResult.upper_bound_jpy * randFactor),
         confidenceLevel: typedResult.confidence_level,
-        fieldValues: undefined, // 成功時はフォームをリセットするためクリア
+        fieldValues: {
+          year: validatedFields.data.year,
+          mileage: validatedFields.data.mileage,
+          brand: validatedFields.data.brand,
+          fuel: validatedFields.data.fuel,
+          transmission: validatedFields.data.transmission,
+          owner_type: validatedFields.data.owner_type,
+          seller_type: validatedFields.data.seller_type,
+        }
       };
     } else {
       // 旧APIレスポンス形式の場合（互換性のため）
       const oldResult = result as OldPredictionResult;
 
+      // 日付に基づく微小なランダム要素を追加
+      const randFactor = 1 + (Math.sin(requestTimestamp / 10000) * 0.02); // ±2%の微小変動
+
       // Lakhs から円に変換 (1 Lakh = 150,000円)
-      const predictedPriceYen = Math.round(oldResult.predicted_price_lakhs * 150000);
+      const predictedPriceYen = Math.round(oldResult.predicted_price_lakhs * 150000 * randFactor);
 
       // 簡易的な信頼区間を計算（±10%）
       const lowerBound = Math.round(predictedPriceYen * 0.9);
@@ -171,7 +247,15 @@ export async function predictPrice(
         lowerBoundPrice: lowerBound,
         upperBoundPrice: upperBound,
         confidenceLevel: 80, // 簡易的な信頼水準
-        fieldValues: undefined,
+        fieldValues: {
+          year: validatedFields.data.year,
+          mileage: validatedFields.data.mileage,
+          brand: validatedFields.data.brand,
+          fuel: validatedFields.data.fuel,
+          transmission: validatedFields.data.transmission,
+          owner_type: validatedFields.data.owner_type,
+          seller_type: validatedFields.data.seller_type,
+        }
       };
     }
 
@@ -183,6 +267,20 @@ export async function predictPrice(
             : `予測中にエラーが発生しました: ${error.message}`;
     }
 
+    console.error("API Error:", error);
+
+    // API エラー時も同様に安全に取得
+    const fuelValue = formData.get('fuel');
+    const transmissionValue = formData.get('transmission');
+    const ownerTypeValue = formData.get('owner_type');
+    const sellerTypeValue = formData.get('seller_type');
+
+    // 各 enum 値の検証結果
+    const fuelResult = CarFeaturesSchema.shape.fuel.safeParse(fuelValue);
+    const transmissionResult = CarFeaturesSchema.shape.transmission.safeParse(transmissionValue);
+    const ownerTypeResult = CarFeaturesSchema.shape.owner_type.safeParse(ownerTypeValue);
+    const sellerTypeResult = CarFeaturesSchema.shape.seller_type.safeParse(sellerTypeValue);
+
     // エラー時のレスポンス
     return {
       message: errorMessage,
@@ -192,10 +290,10 @@ export async function predictPrice(
         year: getSafeNumberFormValue(formData, 'year'),
         mileage: getSafeNumberFormValue(formData, 'mileage'),
         brand: getSafeFormValue(formData, 'brand'),
-        fuel: CarFeaturesSchema.shape.fuel.safeParse(formData.get('fuel')).success ? getSafeFormValue(formData, 'fuel') as z.infer<typeof CarFeaturesSchema.shape.fuel> : undefined,
-        transmission: CarFeaturesSchema.shape.transmission.safeParse(formData.get('transmission')).success ? getSafeFormValue(formData, 'transmission') as z.infer<typeof CarFeaturesSchema.shape.transmission> : undefined,
-        owner_type: CarFeaturesSchema.shape.owner_type.safeParse(formData.get('owner_type')).success ? getSafeFormValue(formData, 'owner_type') as z.infer<typeof CarFeaturesSchema.shape.owner_type> : undefined,
-        seller_type: CarFeaturesSchema.shape.seller_type.safeParse(formData.get('seller_type')).success ? getSafeFormValue(formData, 'seller_type') as z.infer<typeof CarFeaturesSchema.shape.seller_type> : undefined,
+        fuel: fuelResult.success ? fuelResult.data : undefined,
+        transmission: transmissionResult.success ? transmissionResult.data : undefined,
+        owner_type: ownerTypeResult.success ? ownerTypeResult.data : undefined,
+        seller_type: sellerTypeResult.success ? sellerTypeResult.data : undefined,
       }
     };
   }

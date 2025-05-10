@@ -1,163 +1,368 @@
 .formContainer {
+  max-width: 1200px; /* 横幅を広げる */
+  margin: 0 auto;
   padding: 2rem;
-  border: 1px solid #e2e8f0; /* Tailwind gray-200 */
-  border-radius: 0.5rem; /* Tailwind rounded-lg */
+  border-radius: 0.5rem;
   background-color: #ffffff;
-  max-width: 500px;
-  margin: 2rem auto;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); /* Tailwind shadow-md */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  display: flex; /* フレックスボックスを使って水平分割 */
+  flex-direction: row; /* 横方向に並べる */
+  gap: 2rem; /* 2カラム間の間隔 */
+  min-height: 650px; /* 最低高さを設定 */
+}
+
+.formColumn {
+  flex: 1; /* 均等に分割 */
+  display: flex;
+  flex-direction: column;
+}
+
+.resultsColumn {
+  flex: 1; /* 均等に分割 */
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #e5e7eb; /* 区切り線 */
+  padding-left: 2rem;
+  background-color: #f3f4f6; /* 背景色を追加 */
+  border-radius: 0 0.5rem 0.5rem 0; /* 右側の角を丸く */
+  margin-right: -2rem; /* コンテナのパディングを相殺 */
+  padding-right: 2rem; /* 右側の余白を追加 */
+  margin-top: -2rem; /* コンテナのパディングを相殺 */
+  padding-top: 2rem; /* 上部の余白を追加 */
+  margin-bottom: -2rem; /* コンテナのパディングを相殺 */
+  padding-bottom: 2rem; /* 下部の余白を追加 */
+}
+
+/* レスポンシブ対応：モバイル向け */
+@media (max-width: 768px) {
+  .formContainer {
+    flex-direction: column; /* スマホでは縦並びに */
+  }
+
+  .resultsColumn {
+    border-left: none;
+    border-top: 1px solid #e5e7eb;
+    padding-left: 0;
+    padding-top: 2rem;
+    margin-top: 1rem;
+    margin-right: 0;
+    margin-left: 0;
+    margin-bottom: 0;
+    border-radius: 0 0 0.5rem 0.5rem; /* 下部の角だけ丸く */
+  }
+}
+
+.formContainer h2 {
+  font-size: 1.75rem;
+  color: #374151;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.requiredNote {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-bottom: 1.25rem;
+  text-align: right;
 }
 
 .fieldGroup {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 .label {
   display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #4b5563;
   margin-bottom: 0.5rem;
-  font-weight: 500; /* Tailwind font-medium */
-  color: #4a5568; /* Tailwind gray-700 */
 }
 
-.input,
-.select {
+.requiredMark {
+  color: #ef4444;
+  margin-left: 2px;
+  font-weight: bold;
+}
+
+.input, .select {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 1px solid #cbd5e1; /* Tailwind gray-300 */
-  border-radius: 0.375rem; /* Tailwind rounded-md */
-  box-sizing: border-box;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background-color: #f9fafb;
   font-size: 1rem;
-  color: #2d3748; /* Tailwind gray-800 */
-  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  color: #1f2937;
+  transition: border-color 0.15s ease-in-out;
 }
 
-.input:focus,
-.select:focus {
+.input:focus, .select:focus {
   outline: none;
-  border-color: #4299e1; /* Tailwind blue-400 */
-  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5); /* Tailwind focus:ring-blue-300 */
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
 }
 
-/* エラー時の入力スタイル（PredictionForm.tsx側でクラス付与が必要） */
-.inputError,
-.selectError {
-  border-color: #f56565; /* Tailwind red-500 */
-}
-.inputError:focus,
-.selectError:focus {
-   border-color: #f56565; /* Tailwind red-500 */
-   box-shadow: 0 0 0 3px rgba(245, 101, 101, 0.5); /* Tailwind focus:ring-red-300 */
+.input::placeholder {
+  color: #9ca3af;
 }
 
+.inputError, .selectError {
+  border-color: #ef4444;
+}
 
 .errorMessage {
-  color: #e53e3e; /* Tailwind red-600 */
-  font-size: 0.875rem; /* Tailwind text-sm */
-  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #ef4444;
+  margin-top: 0.375rem;
+}
+
+.formError {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.875rem;
 }
 
 .submitButton {
-  padding: 0.75rem 1.5rem;
-  background-color: #4299e1; /* Tailwind blue-500 */
-  color: white;
-  border: none;
-  border-radius: 0.375rem; /* Tailwind rounded-md */
-  cursor: pointer;
+  display: inline-block;
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  background-color: #3b82f6;
+  color: #ffffff;
   font-size: 1rem;
-  font-weight: 600; /* Tailwind font-semibold */
-  transition: background-color 0.2s ease-in-out, opacity 0.2s ease-in-out;
+  font-weight: 500;
+  text-align: center;
+  border-radius: 0.375rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease-in-out;
 }
 
-.submitButton:hover {
-  background-color: #3182ce; /* Tailwind blue-600 */
+.submitButton:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.submitButton:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
 }
 
 .submitButtonPending {
-  opacity: 0.7;
+  background-color: #93c5fd;
   cursor: not-allowed;
 }
 
 .predictionResult {
+  padding: 1.5rem;
+  background-color: transparent; /* 背景色を透明に */
+  border-radius: 0.375rem;
+  padding-bottom: 2rem; /* 下部の余白を増やす */
+  min-height: 400px; /* 最小高さを設定 */
+}
+
+.predictionResultError {
   margin-top: 2rem;
   padding: 1.5rem;
-  background-color: #f8f9fa;
-  border-radius: 0.5rem;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border-radius: 0.375rem;
+  margin-bottom: 2rem; /* 下部の余白を追加 */
 }
 
 .predictionResult h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.2rem;
-  color: #333;
+  font-size: 1.25rem;
+  color: #374151;
+  margin-bottom: 0.5rem;
 }
 
 .predictedPrice {
-  font-size: 2rem;
-  font-weight: bold;
-  color: #0066cc;
-  margin: 0.5rem 0 1.5rem;
+  font-size: 2.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  text-align: center;
+  margin-bottom: 1rem;
 }
 
-/* 信頼区間表示のスタイル */
 .confidenceInterval {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e0e0e0;
+  margin-top: 2rem;
 }
 
-.confidenceInterval h4 {
-  margin: 0 0 1rem 0;
+.confidenceIntervalTitle {
   font-size: 1rem;
-  color: #555;
-  font-weight: 500;
+  color: #4b5563;
+  margin-bottom: 1rem;
+  text-align: center;
 }
 
 .confidenceLevel {
+  font-size: 0.875rem;
+  color: #6b7280;
   font-weight: normal;
-  color: #777;
+  margin-left: 0.5rem;
 }
 
 .confidenceBarContainer {
-  margin: 1.5rem 0;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.predictedPriceText {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+.priceRangeContainer {
+  display: flex;
+  align-items: stretch;
+  margin-bottom: 2rem;
+}
+
+.priceRangeLeft {
+  width: 20%;
+  text-align: left;
+}
+
+.priceRangeRight {
+  width: 20%;
+  text-align: right;
+}
+
+.priceRangeCenter {
+  width: 60%;
+  position: relative;
+}
+
+.priceRangeLabel {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-bottom: 0.25rem;
+}
+
+.priceRangeValue {
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
 .confidenceBar {
   position: relative;
-  height: 0.5rem;
-  background: linear-gradient(to right, #a8e0ff, #0066cc);
-  border-radius: 1rem;
-  margin-bottom: 0.5rem;
+  height: 0.75rem;
+  background: linear-gradient(to right, #93c5fd, #3b82f6, #1d4ed8);
+  border-radius: 0.25rem;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .confidenceBarMarker {
   position: absolute;
-  top: -0.5rem;
-  width: 3px;
-  height: 1.5rem;
-  background-color: #000;
+  top: -0.75rem;
+  width: 0;
+  height: 0;
+  border-left: 0.5rem solid transparent;
+  border-right: 0.5rem solid transparent;
+  border-top: 0.75rem solid #ef4444;
   transform: translateX(-50%);
 }
 
-.confidenceBarLabels {
+.confidenceNote {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 1rem;
+  text-align: center;
+  font-style: italic;
+  line-height: 1.5;
+  padding-top: 1rem;
+  border-top: 1px dashed #d1d5db;
+  clear: both;
+}
+
+.confidenceNoteText {
+  margin-bottom: 0.5rem;
+}
+
+/* ビジュアライゼーション関連 */
+.visualizationContainer {
+  margin-top: 1.5rem;
+  width: 100%;
+}
+
+.colorLegend {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+.colorIndicatorWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.colorIndicator {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.colorDescription {
+  font-size: 0.85rem;
+}
+
+.colorLegendText {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-bottom: 1rem;
+}
+
+.predictionComparison {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+.predictionComparisonText {
+  font-size: 0.875rem;
+  color: #4b5563;
+  margin-bottom: 0.75rem;
+}
+
+.predictionComparisonRange {
   display: flex;
   justify-content: space-between;
-  font-size: 0.85rem;
-  color: #666;
+  font-size: 0.75rem;
+  color: #6b7280;
 }
 
-.confidenceNote {
-  margin-top: 1.5rem;
-  font-size: 0.8rem;
-  color: #777;
-  line-height: 1.4;
+.emptyStateMessage {
+  text-align: center;
+  color: #6b7280;
+  margin-top: 4rem;
 }
 
-/* エラー表示のスタイル */
-.predictionResultError {
-  margin-top: 2rem;
-  padding: 1rem;
-  background-color: #fff4f4;
-  border: 1px solid #ffdbdb;
-  border-radius: 0.5rem;
-  color: #d83030;
+.priceGauge {
+  position: relative;
+  height: 200px;
+  width: 200px;
+  margin: 0 auto;
+}
+
+.priceIndicator {
+  transition: all 0.5s ease-in-out;
+}
+
+/* アニメーション効果 */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fadeInAnimation {
+  animation: fadeIn 0.5s ease-in-out;
 }
