@@ -3,6 +3,19 @@
 import { z } from 'zod'; // zod をインポート
 import { OldPredictionResult, PredictionResult } from './types';
 
+// サニタイズ関数: XSS対策
+const sanitizeString = (input: string): string => {
+  if (typeof input !== 'string') return '';
+
+  // HTMLタグの削除または無害化
+  return input.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    // スクリプト実行を防ぐその他の文字も無害化
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+=/gi, '')
+    .replace(/data:/gi, '')
+    .replace(/&#/g, '&amp;#');
+};
+
 // Zod スキーマでフォーム入力を定義・検証
 const CarFeaturesSchema = z.object({
   year: z.coerce.number().int().min(1980, "1980年以降の年式を入力してください。").max(new Date().getFullYear() + 1, "未来の年式は入力できません。"),
@@ -62,13 +75,14 @@ export type FormState = {
 // フォーム入力から安全に値を取得するヘルパー関数
 function getSafeFormValue(formData: FormData, key: string): string | undefined {
   const value = formData.get(key);
-  return typeof value === 'string' ? value : undefined;
+  return typeof value === 'string' ? sanitizeString(value) : undefined;
 }
 
 function getSafeNumberFormValue(formData: FormData, key: string): number | undefined {
   const value = formData.get(key);
   if (typeof value !== 'string') return undefined;
-  const num = Number(value);
+  const sanitized = sanitizeString(value);
+  const num = Number(sanitized);
   return !isNaN(num) ? num : undefined;
 }
 
@@ -91,14 +105,15 @@ export async function predictPrice(
     seller_type: formData.get('seller_type'),
   });
 
+  // サーバーサイドでも入力値をサニタイズ（二重チェック）
   const rawFormData = {
-    year: formData.get('year'),
-    mileage: formData.get('mileage'),
-    brand: formData.get('brand') || "", // Convert null to empty string for better error messages
-    fuel: formData.get('fuel') || "",
-    transmission: formData.get('transmission') || "",
-    owner_type: formData.get('owner_type') || "",
-    seller_type: formData.get('seller_type') || "",
+    year: getSafeFormValue(formData, 'year'),
+    mileage: getSafeFormValue(formData, 'mileage'),
+    brand: getSafeFormValue(formData, 'brand') || "", // Convert null to empty string for better error messages
+    fuel: getSafeFormValue(formData, 'fuel') || "",
+    transmission: getSafeFormValue(formData, 'transmission') || "",
+    owner_type: getSafeFormValue(formData, 'owner_type') || "",
+    seller_type: getSafeFormValue(formData, 'seller_type') || "",
   };
 
   // Zod でバリデーション

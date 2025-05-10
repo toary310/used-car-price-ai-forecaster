@@ -11,6 +11,29 @@ const transmissionTypes = ['Manual', 'Automatic'];
 const ownerTypes = ['First Owner', 'Second Owner', 'Third Owner', 'Fourth & Above Owner'];
 const sellerTypes = ['Dealer', 'Individual', 'Trustmark Dealer'];
 
+// 入力値のサニタイズ関数
+const sanitizeInput = (input: string): string => {
+  // HTMLタグの削除または無害化
+  return input.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    // スクリプト実行を防ぐその他の文字も無害化
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+=/gi, '')
+    .replace(/data:/gi, '')
+    .replace(/&#/g, '&amp;#');
+};
+
+// フォームデータのサニタイズ関数
+const sanitizeFormData = (formData: FormData): FormData => {
+  const sanitizedFormData = new FormData();
+  for (const [key, value] of formData.entries()) {
+    if (typeof value === 'string') {
+      sanitizedFormData.append(key, sanitizeInput(value));
+    } else {
+      sanitizedFormData.append(key, value);
+    }
+  }
+  return sanitizedFormData;
+};
 
 export default function PredictionForm() {
   const initialState: FormState = null;
@@ -187,8 +210,11 @@ export default function PredictionForm() {
     if (formRef.current) {
       const formData = new FormData(formRef.current);
 
+      // フォームデータをサニタイズ
+      const sanitizedFormData = sanitizeFormData(formData);
+
       // Server Actionを呼び出し
-      void formAction(formData);
+      void formAction(sanitizedFormData);
     }
   };
 
@@ -377,9 +403,12 @@ export default function PredictionForm() {
                 if (formRef.current) {
                   const formData = new FormData(formRef.current);
 
+                  // フォームデータをサニタイズ
+                  const sanitizedFormData = sanitizeFormData(formData);
+
                   // startTransition内でServer Actionを呼び出し
                   startTransition(() => {
-                    formAction(formData);
+                    formAction(sanitizedFormData);
                   });
                 }
               }}

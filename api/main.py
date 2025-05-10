@@ -6,6 +6,7 @@ FastAPIは最新のPython Web APIフレームワークで、高速で使いや�
 """
 
 # ======= ライブラリのインポート =======
+import os
 import joblib  # モデルの保存・読み込みに使用（学習済みモデルをファイルから読み込むため）
 import pandas as pd  # データ処理に使用（DataFrameでデータを扱いやすくするため）
 import numpy as np  # 数値計算用（配列操作や統計計算に使用）
@@ -78,18 +79,25 @@ app = FastAPI(
 # CORS(Cross-Origin Resource Sharing)は、異なるオリジン（ドメイン）間でのリクエストを許可するためのセキュリティ機構
 # フロントエンドアプリケーションからのリクエストを許可するための設定
 # WebブラウザはデフォルトでCORSを制限しているため、APIサーバー側で明示的に許可する必要がある
-origins = [
-    "http://localhost:3000",  # Next.jsの開発サーバー
-    # 必要に応じて他のオリジンを追加（本番環境のドメインなど）
-]
+
+# 環境変数から取得するか、デフォルト値を使用
+
+# 開発環境と本番環境でオリジンを切り替え
+is_production = os.getenv('ENVIRONMENT') == 'production'
+production_origin = os.getenv(
+    'FRONTEND_ORIGIN', 'https://your-production-domain.com')
+dev_origins = ["http://localhost:3000"]  # Next.jsの開発サーバー
+
+# 本番環境では指定されたオリジンのみを許可、開発環境では開発用オリジンを許可
+origins = [production_origin] if is_production else dev_origins
 
 # CORSミドルウェアを追加（ミドルウェアはリクエスト/レスポンスの処理の途中で動作する仕組み）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,  # 許可するオリジンのリスト
     allow_credentials=True,  # クレデンシャル（Cookie等）の送信を許可
-    allow_methods=["*"],  # すべてのHTTPメソッドを許可（GET, POST, PUT, DELETEなど）
-    allow_headers=["*"],  # すべてのHTTPヘッダーを許可
+    allow_methods=["GET", "POST"],  # 許可するHTTPメソッドを制限
+    allow_headers=["Content-Type", "Authorization"],  # 許可するHTTPヘッダーを制限
 )
 
 # ======= リクエストボディの Pydantic モデル =======
