@@ -1,0 +1,18 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
+  "installCommand": "npm ci",
+  "ignoreCommand": "echo \"Skipping ignored files\"",
+  "excludeFiles": [
+    "api/.venv/**",
+    "api/model/**",
+    "api/data/**",
+    "**/__pycache__/**",
+    "**/node_modules/**"
+  ]
+}
